@@ -691,38 +691,9 @@ static void kp_work(struct kp *kp)
 {
 	int i, code;
 	kp_search_key(kp);
-
-	//add for adc keys(channel 4)
-	//VOL+, VOL-, start, select
-	i = 4;
-	code = kp->key_code[i];
-	if ((!code) && (!kp->cur_keycode[i])) {
-		;
-	} else if (code != kp->tmp_code[i]) {
-		kp->tmp_code[i] = code;
-		kp->count[i] = 0;
-	} else if(++kp->count[i] == 2) {
-		if (kp->cur_keycode[i] != code) {
-			if (!code) {
-				kp->cur_keycode_status[i] = 0;
-				//printk("key %d up\n", kp->cur_keycode[i]);
-				input_report_key(kp->input, kp->cur_keycode[i], 0);
-				kp->cur_keycode[i] = code;
-			} else if (kp->cur_keycode_status[i] == 1) {
-				//printk("--------------------------- error cur = %d  new code = %d -------------------------\n", kp->cur_keycode[i], code);
-				//printk("key %d up(force)\n", kp->cur_keycode[i]);
-				input_report_key(kp->input, kp->cur_keycode[i], 0);
-				kp->cur_keycode_status[i] = 0;
-				kp->count[i] = 0;
-			} else {
-				kp->cur_keycode_status[i] = 1;
-				//printk("key %d down\n", code);
-				input_report_key(kp->input, code, 1);
-				kp->cur_keycode[i] = code;
-			}
-		}
-	}
-	//end
+	
+	//Channel 4 statement has been removed since we want it to work only when virtual mapping is off,
+	//it is now included in if(key_param[0]==0) for, we raised kb->chan_num to 5	
 
 	if (key_param[0] == 1) {
 		//circle 1 (right joystick)
@@ -810,6 +781,8 @@ static void kp_work(struct kp *kp)
 			//printk("-------------- release all point -----------------\n");
 		}
 	}
+	
+
 
 	if (key_param[0] == 0) {
 		//left,right,up,down
