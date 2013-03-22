@@ -53,11 +53,6 @@
 #define BUTTON_R        BTN_TR
 #define BUTTON_L2       BTN_TL2
 #define BUTTON_R2       BTN_TR2
-/*
-* Added by vektor.
-*/
-#define BUTTON_START	BTN_START
-#define BUTTON_SELECT	BTN_SELECT
 
 #define LCD_SCREEN_X	1024
 #define LCD_SCREEN_Y 	600
@@ -151,7 +146,8 @@ static void kp_search_key(struct kp *kp)
 {
 	int value, i;
 
-	if (key_param[0] == 1 || key_param[0] == 2) { //virtual key mode channel 0, 1, 2, 3
+	if (key_param[0] == 1 || key_param[0] == 2) { 
+		//virtual key mode channel 0, 1, 2, 3
 		for (i=0; i<kp->chan_num; i++) {
 			value = get_adc_sample(kp->chan[i]);
 			if (value < 0) {
@@ -165,8 +161,45 @@ static void kp_search_key(struct kp *kp)
 			}
 		}
 	}
-	if (key_param[0] == 0) { //normal key mode
+	if (key_param[0] == 0) { 
+		
+		//normal key mode
+
+		//VEKTOR_NOTE: Here we are in normal key mode when touchpad is disabled
+		//to enable RSTICK hardware mapping we need to enable it in mode 0
+		//Enabling channels 0,1 
+		//channel 0
+		value = get_adc_sample(kp->chan[0]);
+		if (value < 0) {
+			;
+		} else {
+			if (value >= 1023 - ADC_KEY)
+				//rstick down
+				kp->key_code[0] = KEY_K;
+			else if (value <= 0 + ADC_KEY)
+				//rstick up
+				kp->key_code[0] = KEY_I;
+			else
+				kp->key_code[0] = 0;
+		}
+
+		//channel 1
+		value = get_adc_sample(kp->chan[1]);
+		if (value < 0) {
+			;
+		} else {
+			if (value >= 1023 - ADC_KEY)
+				kp->key_code[1] = KEY_J; //rstick left
+			else if (value <= 0 + ADC_KEY)
+				kp->key_code[1] = KEY_L; //rstick right
+			else
+				kp->key_code[1] = 0;
+		}
+		
+
 		//channel 2
+		
+		
 		value = get_adc_sample(kp->chan[2]);
 		if (value < 0) {
 			;
@@ -191,24 +224,29 @@ static void kp_search_key(struct kp *kp)
 			else
 				kp->key_code[3] = 0;
 		}
+		
+		
+		//channel 4
+		//VEKTOR Note: We add this inside here because we want channel 4 (volume,start,select)
+		//to work only when we're not using virtual mapping
+		value = get_adc_sample(kp->chan[4]);
+		if (value < 0) {
+			;
+		} else {
+			if (value >= 0 && value <= (9 + 40))
+				kp->key_code[4] = KEY_SPACE;
+			else if (value >= (392 - 40) && value <= (392 + 40))
+				kp->key_code[4] = KEY_ENTER;
+			else if (value >= (150 - 40) && value <= (150 + 40))
+				kp->key_code[4] = KEY_VOLUMEDOWN;
+			else if (value >= (275 - 40) && value <= (275 + 40))
+				kp->key_code[4] = KEY_VOLUMEUP;
+			else
+				kp->key_code[4] = 0;
+		}
+		
 	}
 
-	//channel 4
-	value = get_adc_sample(kp->chan[4]);
-	if (value < 0) {
-		;
-	} else {
-		if (value >= 0 && value <= (9 + 40))
-			kp->key_code[4] = KEY_SPACE;
-		else if (value >= (392 - 40) && value <= (392 + 40))
-			kp->key_code[4] = KEY_ENTER;
-		else if (value >= (150 - 40) && value <= (150 + 40))
-			kp->key_code[4] = KEY_VOLUMEDOWN;
-		else if (value >= (275 - 40) && value <= (275 + 40))
-			kp->key_code[4] = KEY_VOLUMEUP;
-		else
-			kp->key_code[4] = 0;
-	}
 
 	return 0;
 }
@@ -775,7 +813,8 @@ static void kp_work(struct kp *kp)
 
 	if (key_param[0] == 0) {
 		//left,right,up,down
-		for (i=2; i<kp->chan_num; i++) {
+		//Vektor Note: Change this i to 0 to detect input on all the channels!
+		for (i=0; i<kp->chan_num; i++) {
 			code = kp->key_code[i];
 			if (!code && !kp->cur_keycode[i]) {
 				continue;
@@ -922,6 +961,15 @@ static int __devinit kp_probe(struct platform_device *pdev)
 	set_bit(BUTTON_L2, input_dev->keybit);
 	set_bit(BUTTON_R2, input_dev->keybit);
 
+	//VEKTOR: Here I add the keys used for RSTICK I J K L
+	
+	set_bit(KEY_I, input_dev->keybit);
+	set_bit(KEY_J, input_dev->keybit);
+	set_bit(KEY_K, input_dev->keybit);
+	set_bit(KEY_L, input_dev->keybit);
+	
+
+
 	set_bit(EV_REP, input_dev->evbit);
 	set_bit(EV_KEY, input_dev->evbit);
 	set_bit(EV_ABS, input_dev->evbit);
@@ -940,11 +988,11 @@ static int __devinit kp_probe(struct platform_device *pdev)
 	input_set_abs_params(input_dev, ABS_MT_TRACKING_ID, 0, TRACKING_ID, 0, 0);
 
 
-	kp->chan_num = 4;
-	kp->chan[0] = CHAN_0;
-	kp->chan[1] = CHAN_1;
-	kp->chan[2] = CHAN_2; //LEFT, RIGHT
-	kp->chan[3] = CHAN_3; //UP, DOWN
+	kp->chan_num = 5;
+	kp->chan[0] = CHAN_0; //RSTICK UP, DOWN
+	kp->chan[1] = CHAN_1; //RSTICK LEFT, RIGHT
+	kp->chan[2] = CHAN_2; //LSTICK LEFT, RIGHT
+	kp->chan[3] = CHAN_3; //LSTICK UP, DOWN
 	kp->chan[4] = CHAN_4; //KEY_SPACE,KEY_ENTER,KEY_VOLUMEDOWN,KEY_VOLUMEUP
 
 
