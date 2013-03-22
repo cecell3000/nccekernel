@@ -988,7 +988,7 @@ static int __devinit kp_probe(struct platform_device *pdev)
 	input_set_abs_params(input_dev, ABS_MT_TRACKING_ID, 0, TRACKING_ID, 0, 0);
 
 
-	kp->chan_num = 5;
+	kp->chan_num = 5; //Setting this to 5 allows us to use virtual mapping for volume/select/start too.
 	kp->chan[0] = CHAN_0; //RSTICK UP, DOWN
 	kp->chan[1] = CHAN_1; //RSTICK LEFT, RIGHT
 	kp->chan[2] = CHAN_2; //LSTICK LEFT, RIGHT
