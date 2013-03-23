@@ -118,6 +118,8 @@ struct kp {
 	int key_num;
 	struct work_struct work_update;
 	int flaga,flagb,flagx,flagy,flagl,flagr,flagl2,flagr2;
+	//Detect channel 4 (vol, start,select)
+	int flagchan;
 };
 
 static struct kp *gp_kp=NULL;
@@ -148,7 +150,7 @@ static void kp_search_key(struct kp *kp)
 
 	if (key_param[0] == 1 || key_param[0] == 2) { 
 		//virtual key mode channel 0, 1, 2, 3
-		for (i=0; i<kp->chan_num; i++) {
+		for (i=0; i<4; i++) {
 			value = get_adc_sample(kp->chan[i]);
 			if (value < 0) {
 				;
@@ -159,6 +161,20 @@ static void kp_search_key(struct kp *kp)
 					kp->key_valid[i] = 1;
 				kp->key_value[i] = value;
 			}
+		}
+
+		//VEKTOR: I add this to set valid inputs from channel 4
+		value = get_adc_sample(kp->chan[4]);
+		if (value < 0) {
+			;
+		} else {
+			if ((value >= 0 && value <= (9 + 40)) || \
+				(value >= (392 - 40) && value <= (392 + 40)) || \
+				(value >= (150 - 40) && value <= (150 + 40)) || \
+				(value >= (275 - 40) && value <= (275 + 40))) \
+				kp->key_valid[4] = 1;
+			else kp->key_valid[4] = 0;
+			kp->key_value[4] = value;
 		}
 	}
 	if (key_param[0] == 0) { 
@@ -198,8 +214,8 @@ static void kp_search_key(struct kp *kp)
 		
 
 		//channel 2
-		
-		
+
+
 		value = get_adc_sample(kp->chan[2]);
 		if (value < 0) {
 			;
@@ -766,12 +782,38 @@ static void kp_work(struct kp *kp)
 			second0 = 0;
 		}
 
+	// Volume / start / select buttons
+	//At the moment they're mapped as A B buttons, because we need to extend
+	//Key params size. I planned an array sized 56-57 to get all the features.
+	if(key_param[0] == 1 || key_param[0] == 2){
+		if(kp->key_valid[4]==1){
+			int value = kp->key_value[4];
+			kp->flagchan =0;
+			if (value>=0 && value<=(9+40)){
+				key_report(kp, key_param[4],key_param[5],11);
+			}
+			else if(value>=392-40 && value<=(392+40)){
+				key_report(kp, key_param[6], key_param[7],11);
+			}
+			else if(value>=275-40 && value<=275+40){
+				key_report(kp, key_param[4], key_param[5],11);
+			}
+			else if(value>=150-40 && value<=150+40){
+				key_report(kp, key_param[6], key_param[7], 11);
+			}
+			kp->flagchan=0;
+		} else {
+			kp->flagchan=1;
+		}
+	}
+
 		scan_keys(kp);
 		input_sync(kp->input);
 
 		if (release && (kp->circle_flag[0] == 0) && (kp->circle_flag[1] ==0) \
 			&& kp->flaga && kp->flagb && kp->flagx && kp->flagy \
-			&& kp->flagl && kp->flagr && kp->flagl2 && kp->flagr2) {
+			&& kp->flagl && kp->flagr && kp->flagl2 && kp->flagr2 \
+			&& kp->flagchan ) {
 			release = 0;
 			input_report_key(kp->input, BTN_TOUCH, 0);
 			input_report_abs(kp->input, ABS_MT_TOUCH_MAJOR, 0);
@@ -902,7 +944,7 @@ static int __devinit kp_probe(struct platform_device *pdev)
 		kp->tmp_code[i] = 0;
 		kp->count[i] = 0;
 	}
-	kp->flaga = kp->flagb = kp->flagx = kp->flagy = kp->flagl = kp->flagr = kp->flagl2 = kp->flagr2 = 0;
+	kp->flaga = kp->flagb = kp->flagx = kp->flagy = kp->flagl = kp->flagr = kp->flagl2 = kp->flagr2 = kp->flagchan = 0;
 	kp->circle_flag[0] = 0;
 	kp->circle_flag[1] ==0;
 
@@ -940,7 +982,7 @@ static int __devinit kp_probe(struct platform_device *pdev)
 	set_bit(KEY_J, input_dev->keybit);
 	set_bit(KEY_K, input_dev->keybit);
 	set_bit(KEY_L, input_dev->keybit);
-	
+
 
 
 	set_bit(EV_REP, input_dev->evbit);
