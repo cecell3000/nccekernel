@@ -1,7 +1,7 @@
 ncce_kernel
 ===========
 
-
+22/03/2013 - Added right stick hardware mapping.
 
 03/10/2013 - Edits to add CPU governors.
 
