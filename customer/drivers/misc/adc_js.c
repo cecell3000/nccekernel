@@ -97,31 +97,6 @@
 static long key_param[49];
 
 struct kp {
-<<<<<<< HEAD
-	struct input_dev *input;
-	struct timer_list timer;
-	unsigned int cur_keycode[SARADC_CHAN_NUM];
-	unsigned int cur_keycode_status[SARADC_CHAN_NUM];
-	unsigned int tmp_code[SARADC_CHAN_NUM];
-	int count[SARADC_CHAN_NUM];	
-	int config_major;
-	char config_name[20];
-	struct class *config_class;
-	struct device *config_dev;
-	int chan[SARADC_CHAN_NUM];
-	int key_code[SARADC_CHAN_NUM];
-	int key_value[SARADC_CHAN_NUM];
-	int key_valid[SARADC_CHAN_NUM];
-	int circle_flag[2];
-	int old_x, old_y;
-	int chan_num;
-	struct adc_key *key;
-	int key_num;
-	struct work_struct work_update;
-	int flaga,flagb,flagx,flagy,flagl,flagr,flagl2,flagr2;
-	//Detect channel 4 (vol, start,select)
-	int flagchan;
-=======
     struct input_dev *input;
     struct timer_list timer;
     unsigned int cur_keycode[SARADC_CHAN_NUM];
@@ -145,7 +120,6 @@ struct kp {
     int flaga, flagb, flagx, flagy, flagl, flagr, flagl2, flagr2;
     //Detect channel 4 (vol, start,select)
     int flagchan4;
->>>>>>> Added split mode for dpads
 };
 
 static struct kp *gp_kp = NULL;
@@ -169,129 +143,6 @@ static void key_report(struct kp *kp, long x, long y, int id) {
     release = 1;
 }
 
-<<<<<<< HEAD
-static void kp_search_key(struct kp *kp)
-{
-	int value, i;
-
-	if (key_param[0] == 1 || key_param[0] == 2) { 
-		//virtual key mode channel 0, 1, 2, 3
-		for (i=0; i<4; i++) {
-			value = get_adc_sample(kp->chan[i]);
-			if (value < 0) {
-				;
-			} else {
-				if ((value >= 1023 / 2 - ADC_VALUE * 2) && (value <= 1023 / 2 + ADC_VALUE * 2))
-					kp->key_valid[i] = 0;
-				else
-					kp->key_valid[i] = 1;
-				kp->key_value[i] = value;
-			}
-		}
-
-		//VEKTOR: I add this to set valid inputs from channel 4
-		value = get_adc_sample(kp->chan[4]);
-		if (value < 0) {
-			;
-		} else {
-			if ((value >= 0 && value <= (9 + 40)) || \
-				(value >= (392 - 40) && value <= (392 + 40)) || \
-				(value >= (150 - 40) && value <= (150 + 40)) || \
-				(value >= (275 - 40) && value <= (275 + 40))) \
-				kp->key_valid[4] = 1;
-			else kp->key_valid[4] = 0;
-			kp->key_value[4] = value;
-		}
-	}
-	if (key_param[0] == 0) { 
-		
-		//normal key mode
-
-		//VEKTOR_NOTE: Here we are in normal key mode when touchpad is disabled
-		//to enable RSTICK hardware mapping we need to enable it in mode 0
-		//Enabling channels 0,1 
-		//channel 0
-		value = get_adc_sample(kp->chan[0]);
-		if (value < 0) {
-			;
-		} else {
-			if (value >= 1023 - ADC_KEY)
-				//rstick down
-				kp->key_code[0] = KEY_K;
-			else if (value <= 0 + ADC_KEY)
-				//rstick up
-				kp->key_code[0] = KEY_I;
-			else
-				kp->key_code[0] = 0;
-		}
-
-		//channel 1
-		value = get_adc_sample(kp->chan[1]);
-		if (value < 0) {
-			;
-		} else {
-			if (value >= 1023 - ADC_KEY)
-				kp->key_code[1] = KEY_J; //rstick left
-			else if (value <= 0 + ADC_KEY)
-				kp->key_code[1] = KEY_L; //rstick right
-			else
-				kp->key_code[1] = 0;
-		}
-		
-
-		//channel 2
-
-
-		value = get_adc_sample(kp->chan[2]);
-		if (value < 0) {
-			;
-		} else {
-			if (value >= 1023 - ADC_KEY)
-				kp->key_code[2] = KEY_LEFT;
-			else if (value <= 0 + ADC_KEY)
-				kp->key_code[2] = KEY_RIGHT;
-			else
-				kp->key_code[2] = 0;
-		}
-
-		//channel 3
-		value = get_adc_sample(kp->chan[3]);
-		if (value < 0) {
-			;
-		} else {
-			if (value >= 1023 - ADC_KEY)
-				kp->key_code[3] = KEY_UP;
-			else if (value <= 0 + ADC_KEY)
-				kp->key_code[3] = KEY_DOWN;
-			else
-				kp->key_code[3] = 0;
-		}
-		
-		
-		//channel 4
-		//VEKTOR Note: We add this inside here because we want channel 4 (volume,start,select)
-		//to work only when we're not using virtual mapping
-		value = get_adc_sample(kp->chan[4]);
-		if (value < 0) {
-			;
-		} else {
-			if (value >= 0 && value <= (9 + 40))
-				kp->key_code[4] = KEY_SPACE;
-			else if (value >= (392 - 40) && value <= (392 + 40))
-				kp->key_code[4] = KEY_ENTER;
-			else if (value >= (150 - 40) && value <= (150 + 40))
-				kp->key_code[4] = KEY_VOLUMEDOWN;
-			else if (value >= (275 - 40) && value <= (275 + 40))
-				kp->key_code[4] = KEY_VOLUMEUP;
-			else
-				kp->key_code[4] = 0;
-		}
-		
-	}
-
-
-	return 0;
-=======
 static void kp_search_key(struct kp *kp) {
     int value, i;
 
@@ -411,7 +262,6 @@ static void kp_search_key(struct kp *kp) {
     }
 
     return 0;
->>>>>>> Added split mode for dpads
 }
 
 static void gpio_keys_init(void) {
@@ -849,166 +699,6 @@ static void circle_move(struct kp *kp) {
     y = 0;
 }
 
-<<<<<<< HEAD
-static void kp_work(struct kp *kp)
-{
-	int i, code;
-	kp_search_key(kp);
-	
-	//Channel 4 statement has been removed since we want it to work only when virtual mapping is off,
-	//it is now included in if(key_param[0]==0) for, we raised kb->chan_num to 5	
-
-	if (key_param[0] == 1) {
-		//circle 1 (right joystick)
-		if ((kp->key_valid[0] == 1) || (kp->key_valid[1] == 1)) {
-			kp->circle_flag[1] = 1;
-			if(!second1) {
-				//key_report(kp, (LCD_SCREEN_X+XCENTER)/2, LCD_SCREEN_Y/2, 1);
-				key_report(kp, key_param[21], key_param[22], 1);
-				second1 = 1;
-			} else {
-				circle_move(kp);
-				key_report(kp, kp->key_value[1], kp->key_value[0], 1);
-			}
-		} else if (kp->circle_flag[1] == 1) {
-			kp->circle_flag[1] = 0;
-			second1 = 0;
-			//kp->old_x = (LCD_SCREEN_X+XCENTER)/2;
-			//kp->old_y = LCD_SCREEN_Y/2;
-			kp->old_x = key_param[21];
-			kp->old_y = key_param[22];
-		}
-	}
-	if (key_param[0] == 2) {
-		//circle 1 (right joystick)
-		if ((kp->key_valid[0] == 1) || (kp->key_valid[1] == 1)) {
-			kp->circle_flag[1] = 1;
-			if(second1 < CENTER_TRY) {
-				if(second1 == 0)
-					key_report(kp, key_param[20], key_param[21], 1);
-				if(second1 == 1)
-					key_report(kp, key_param[20] + 1, key_param[21], 1);
-				if(second1 == 2)
-					key_report(kp, key_param[20], key_param[21] + 1, 1);
-				if(second1 == 3)
-					key_report(kp, key_param[20] - 1, key_param[21], 1);
-				if(second1 == 4)
-					key_report(kp, key_param[20], key_param[21] - 1, 1);
-				second1++;
-			} else {
-				key_report(kp, key_param[20] +  (512 - kp->key_value[1]) * key_param[22] / 512, 
-						key_param[21] +  (kp->key_value[0] - 512) * key_param[22] / 512, 1);
-			}
-		} else if (kp->circle_flag[1] == 1) {
-			kp->circle_flag[1] = 0;
-			second1 = 0;
-		}
-	}
-	if (key_param[0] == 1 || key_param[0] == 2) {
-		//circle 0 (left joystick)
-		if ((kp->key_valid[2] == 1) || (kp->key_valid[3] == 1)) {
-			kp->circle_flag[0] = 1;
-			if(second0 < CENTER_TRY) {
-				if(second0 == 0)
-					key_report(kp, key_param[1], key_param[2], 0);
-				if(second0 == 1)
-					key_report(kp, key_param[1] + 1, key_param[2], 0);
-				if(second0 == 2)
-					key_report(kp, key_param[1], key_param[2] + 1, 0);
-				if(second0 == 3)
-					key_report(kp, key_param[1] - 1, key_param[2], 0);
-				if(second0 == 4)
-					key_report(kp, key_param[1], key_param[2] - 1, 0);
-				second0++;
-			} else {
-				key_report(kp, key_param[1] +  (512 - kp->key_value[2]) * key_param[3] / 512, 
-						key_param[2] +  (512 - kp->key_value[3]) * key_param[3] / 512, 0);
-			}
-		} else if (kp->circle_flag[0] == 1) {
-			kp->circle_flag[0] = 0;
-			second0 = 0;
-		}
-
-	// Volume / start / select buttons
-	//At the moment they're mapped as A B buttons, because we need to extend
-	//Key params size. I planned an array sized 56-57 to get all the features.
-	if(key_param[0] == 1 || key_param[0] == 2){
-		if(kp->key_valid[4]==1){
-			int value = kp->key_value[4];
-			kp->flagchan =0;
-			if (value>=0 && value<=(9+40)){
-				key_report(kp, key_param[4],key_param[5],11);
-			}
-			else if(value>=392-40 && value<=(392+40)){
-				key_report(kp, key_param[6], key_param[7],11);
-			}
-			else if(value>=275-40 && value<=275+40){
-				key_report(kp, key_param[4], key_param[5],11);
-			}
-			else if(value>=150-40 && value<=150+40){
-				key_report(kp, key_param[6], key_param[7], 11);
-			}
-			kp->flagchan=0;
-		} else {
-			kp->flagchan=1;
-		}
-	}
-
-		scan_keys(kp);
-		input_sync(kp->input);
-
-		if (release && (kp->circle_flag[0] == 0) && (kp->circle_flag[1] ==0) \
-			&& kp->flaga && kp->flagb && kp->flagx && kp->flagy \
-			&& kp->flagl && kp->flagr && kp->flagl2 && kp->flagr2 \
-			&& kp->flagchan ) {
-			release = 0;
-			input_report_key(kp->input, BTN_TOUCH, 0);
-			input_report_abs(kp->input, ABS_MT_TOUCH_MAJOR, 0);
-			input_report_abs(kp->input, ABS_MT_WIDTH_MAJOR, 0);
-			input_mt_sync(kp->input);
-			input_sync(kp->input);
-			//printk("-------------- release all point -----------------\n");
-		}
-	}
-	
-
-
-	if (key_param[0] == 0) {
-		//left,right,up,down
-		//Vektor Note: Change this i to 0 to detect input on all the channels!
-		for (i=0; i<kp->chan_num; i++) {
-			code = kp->key_code[i];
-			if (!code && !kp->cur_keycode[i]) {
-				continue;
-			} else if (code != kp->tmp_code[i]) {
-				kp->tmp_code[i] = code;
-				kp->count[i] = 0;
-			} else if(++kp->count[i] == 2) {
-				if (kp->cur_keycode[i] != code) {
-					if (!code) {
-						kp->cur_keycode_status[i] = 0;
-						//printk("key %d up\n", kp->cur_keycode[i]);
-						input_report_key(kp->input, kp->cur_keycode[i], 0);
-						kp->cur_keycode[i] = code;
-					} else if (kp->cur_keycode_status[i] == 1) {
-						//printk("--------------------------- error cur = %d  new code = %d -------------------------\n", kp->cur_keycode[i], code);
-						//printk("key %d up(force)\n", kp->cur_keycode[i]);
-						input_report_key(kp->input, kp->cur_keycode[i], 0);
-						kp->cur_keycode_status[i] = 0;
-						kp->count[i] = 0;
-					} else {
-						kp->cur_keycode_status[i] = 1;
-						//printk("key %d down\n", code);
-						input_report_key(kp->input, code, 1);
-						kp->cur_keycode[i] = code;
-					}
-				}
-			}
-		}
-		scan_keys(kp);
-		input_sync(kp->input);
-	}
-=======
 static void kp_work(struct kp *kp) {
     int i, code, value;
     kp_search_key(kp);
@@ -1226,7 +916,6 @@ static void kp_work(struct kp *kp) {
         scan_keys(kp);
         input_sync(kp->input);
     }
->>>>>>> Added split mode for dpads
 }
 
 static void update_work_func(struct work_struct *work) {
@@ -1272,143 +961,6 @@ static int register_keypad_dev(struct kp *kp) {
     return ret;
 }
 
-<<<<<<< HEAD
-static int __devinit kp_probe(struct platform_device *pdev)
-{
-	struct kp *kp;
-	struct input_dev *input_dev;
-	int i, ret;
-	struct adc_kp_platform_data *pdata = pdev->dev.platform_data;
-	s8 phys[32];
-
-	if (!pdata) {
-		dev_err(&pdev->dev, "platform data is required!\n");
-		return -EINVAL;
-	}
-
-	kp = kzalloc(sizeof(struct kp), GFP_KERNEL);
-	input_dev = input_allocate_device();
-	if (!kp || !input_dev) {
-		kfree(kp);
-		input_free_device(input_dev);
-		return -ENOMEM;
-	}
-	gp_kp=kp;
-
-	platform_set_drvdata(pdev, kp);
-	kp->input = input_dev;
-	for (i=0; i<SARADC_CHAN_NUM; i++) {
-		kp->cur_keycode[i] = 0;
-		kp->cur_keycode_status[i] = 0;
-		kp->tmp_code[i] = 0;
-		kp->count[i] = 0;
-	}
-	kp->flaga = kp->flagb = kp->flagx = kp->flagy = kp->flagl = kp->flagr = kp->flagl2 = kp->flagr2 = kp->flagchan = 0;
-	kp->circle_flag[0] = 0;
-	kp->circle_flag[1] ==0;
-
-	//kp->old_x = (LCD_SCREEN_X+XCENTER)/2;
-	//kp->old_y = LCD_SCREEN_Y/2;
-	kp->old_x = key_param[21];
-	kp->old_y = key_param[22];
-
-	INIT_WORK(&(kp->work_update), update_work_func);
-
-	setup_timer(&kp->timer, kp_timer_sr, kp) ;
-	mod_timer(&kp->timer, jiffies+msecs_to_jiffies(100));
-
-	/* setup input device */
-	set_bit(KEY_SPACE, input_dev->keybit);
-	set_bit(KEY_ENTER, input_dev->keybit);
-	set_bit(KEY_VOLUMEDOWN, input_dev->keybit);
-	set_bit(KEY_VOLUMEUP, input_dev->keybit);
-	set_bit(KEY_UP, input_dev->keybit);
-	set_bit(KEY_DOWN, input_dev->keybit);
-	set_bit(KEY_LEFT, input_dev->keybit);
-	set_bit(KEY_RIGHT, input_dev->keybit);
-	set_bit(BUTTON_A, input_dev->keybit);
-	set_bit(BUTTON_B, input_dev->keybit);
-	set_bit(BUTTON_X, input_dev->keybit);
-	set_bit(BUTTON_Y, input_dev->keybit);
-	set_bit(BUTTON_L, input_dev->keybit);
-	set_bit(BUTTON_R, input_dev->keybit);
-	set_bit(BUTTON_L2, input_dev->keybit);
-	set_bit(BUTTON_R2, input_dev->keybit);
-
-	//VEKTOR: Here I add the keys used for RSTICK I J K L
-	
-	set_bit(KEY_I, input_dev->keybit);
-	set_bit(KEY_J, input_dev->keybit);
-	set_bit(KEY_K, input_dev->keybit);
-	set_bit(KEY_L, input_dev->keybit);
-
-
-
-	set_bit(EV_REP, input_dev->evbit);
-	set_bit(EV_KEY, input_dev->evbit);
-	set_bit(EV_ABS, input_dev->evbit);
-	set_bit(BTN_TOUCH, input_dev->keybit);
-	set_bit(ABS_MT_TOUCH_MAJOR, input_dev->absbit);
-	set_bit(ABS_MT_WIDTH_MAJOR, input_dev->absbit);
-	set_bit(ABS_MT_POSITION_X, input_dev->absbit);
-	set_bit(ABS_MT_POSITION_Y, input_dev->absbit);
-	set_bit(ABS_MT_TRACKING_ID, input_dev->absbit);
-	input_set_abs_params(input_dev, ABS_X, 0, LCD_SCREEN_X, 0, 0);
-	input_set_abs_params(input_dev, ABS_Y, 0, LCD_SCREEN_Y, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0, LCD_SCREEN_X, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0, LCD_SCREEN_Y, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_TRACKING_ID, 0, TRACKING_ID, 0, 0);
-
-
-	kp->chan_num = 5; //Setting this to 5 allows us to use virtual mapping for volume/select/start too.
-	kp->chan[0] = CHAN_0; //RSTICK UP, DOWN
-	kp->chan[1] = CHAN_1; //RSTICK LEFT, RIGHT
-	kp->chan[2] = CHAN_2; //LSTICK LEFT, RIGHT
-	kp->chan[3] = CHAN_3; //LSTICK UP, DOWN
-	kp->chan[4] = CHAN_4; //KEY_SPACE,KEY_ENTER,KEY_VOLUMEDOWN,KEY_VOLUMEUP
-
-
-	sprintf(phys, "input/ts");
-	input_dev->name = "adc joystick";
-	input_dev->phys = phys;
-	input_dev->dev.parent = &pdev->dev;
-
-	input_dev->id.bustype = BUS_ISA;
-	input_dev->id.vendor = 0x0001;
-	input_dev->id.product = 0x0001;
-	input_dev->id.version = 0x100;
-	/*
-	input_dev->id.bustype = BUS_ADB;
-	input_dev->id.vendor = 0x222a;
-	input_dev->id.product = 0x0001;
-	input_dev->id.version = 0x0001;
-	*/
-
-	input_dev->rep[REP_DELAY]=0xffffffff;
-	input_dev->rep[REP_PERIOD]=0xffffffff;
-
-	input_dev->keycodesize = sizeof(unsigned short);
-	input_dev->keycodemax = 0x1ff;
-
-	ret = input_register_device(kp->input);
-	if (ret < 0) {
-		printk(KERN_ERR "Unable to register keypad input device.\n");
-		kfree(kp);
-		input_free_device(input_dev);
-		return -EINVAL;
-	}
-	printk("adc joystick register input device completed.\r\n");
-	register_keypad_dev(gp_kp);
-
-	gpio_keys_init();
-
-	struct device *dev = &pdev->dev;
-	sysfs_create_group(&dev->kobj, &key_attr_group);
-
-	return 0;
-=======
 static int __devinit kp_probe(struct platform_device *pdev) {
     struct kp *kp;
     struct input_dev *input_dev;
@@ -1540,7 +1092,6 @@ static int __devinit kp_probe(struct platform_device *pdev) {
     sysfs_create_group(&dev->kobj, &key_attr_group);
 
     return 0;
->>>>>>> Added split mode for dpads
 }
 
 static int kp_remove(struct platform_device *pdev) {
