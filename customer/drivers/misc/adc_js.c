@@ -62,6 +62,9 @@
 #define XCENTER     100
 #define SPEED       5
 
+#define CENTER_X 512
+#define CENTER_Y 300
+
 #define STEP1       (512 - ADC_VALUE)
 #define STEP2       (512 - ADC_VALUE*2)
 #define STEP3       (512 - ADC_VALUE*3)
@@ -94,7 +97,7 @@
 
 //1, circle_x, circle_y, r, ax, ay, bx, by, xx, xy, yx, yy, lx, ly, rx, ry, l2x, l2y, r2x, r2y, view,view_x, view_y
 //2, circle_x, circle_y, r, ax, ay, bx, by, xx, xy, yx, yy, lx, ly, rx, ry, l2x, l2y, r2x, r2y, view_x, view_y, view_r
-static long key_param[49];
+static long key_param[109];
 
 struct kp {
     struct input_dev *input;
@@ -126,7 +129,7 @@ static struct kp *gp_kp = NULL;
 
 static int release = 1;
 static int second0 = 0, second1 = 0;
-
+static int swipe = 0;
 static void key_report(struct kp *kp, long x, long y, int id) {
     if (x == 0 && y == 0) {
         //printk("---------- zero point --------------\n");
@@ -142,6 +145,23 @@ static void key_report(struct kp *kp, long x, long y, int id) {
     }
     release = 1;
 }
+
+static void key_swipe(struct kp *kp, long x, long y, int id) {
+    if (x == 0 && y == 0) {
+        //printk("---------- zero point --------------\n");
+        ;
+    } else {
+        input_report_key(kp->input, BTN_TOUCH, 1);
+        input_report_abs(kp->input, ABS_MT_TRACKING_ID, id);
+        input_report_abs(kp->input, ABS_MT_TOUCH_MAJOR, 20);
+        input_report_abs(kp->input, ABS_MT_WIDTH_MAJOR, 20);
+        input_report_abs(kp->input, ABS_MT_POSITION_X, x);
+        input_report_abs(kp->input, ABS_MT_POSITION_Y, y);
+        input_mt_sync(kp->input);
+    }
+    release = 0;
+}
+
 
 static void kp_search_key(struct kp *kp) {
     int value, i;
@@ -240,9 +260,12 @@ static void kp_search_key(struct kp *kp) {
                 kp->key_code[3] = 0;
         }
 
-        //channel 4
-        //VEKTOR Note: We add this inside here because we want channel 4 (volume,start,select)
-        //to work only when we're not using virtual mapping
+    }
+
+    //channel 4
+    //VEKTOR Note: We add this inside here because we want channel 4 (volume,start,select)
+    //to work only when we're not using enhanced virtual mapping
+    if (key_param[0] != 3) {
         value = get_adc_sample(kp->chan[4]);
         if (value < 0) {
             ;
@@ -258,11 +281,47 @@ static void kp_search_key(struct kp *kp) {
             else
                 kp->key_code[4] = 0;
         }
-
     }
 
     return 0;
 }
+
+
+static void do_swipe(struct kp *kp, long xstart, long ystart, long xend, long yend,
+        int id) {
+    printk("SWIPE! X1 %d Y1 %d X2 %d Y2 %d ID %d \n",xstart,ystart,xend,yend,id);
+    int sx, sy;
+    int dx = abs(xend - xstart);
+    int dy = abs(yend - ystart);
+    if (xstart < xend)
+        sx = 1;
+    else
+        sx = -1;
+    if (ystart < yend)
+        sy = 1;
+    else
+        sy = -1;
+    int err = dx - dy;
+    long tempx = xstart;
+    long tempy = ystart;
+    while (1) {
+        key_report(kp, tempx, tempy, id);
+        input_sync(kp->input);
+        if(tempx == xend && tempy == yend) break;
+        int e2 = 2 * err;
+        if (e2 > (-1)*dy) {
+            err = err - dy;
+            tempx = tempx + sx;
+        } else if (e2 < dx) {
+            err = err + dx;
+            tempy = tempy + sy;
+        }
+    }
+    //release = 1;
+    printk("END! X %d Y %d \n",tempx, tempy);
+
+}
+
 
 static void gpio_keys_init(void) {
     WRITE_CBUS_REG_BITS(PAD_PULL_UP_REG0, 1, 3, 1);
@@ -310,7 +369,12 @@ static void scan_keys(struct kp *kp) {
     if (keyl == keyl_old) {
         if (key_param[0]) {
             if (keyl) {
-                key_report(kp, key_param[12], key_param[13], 6);
+                if (key_param[87] == 1 ) {
+                    if(kp->flagl == 1)
+                    do_swipe(kp, key_param[12], key_param[13], key_param[85],
+                            key_param[86], 6);
+                } else
+                    key_report(kp, key_param[12], key_param[13], 6);
                 input_report_key(input, BUTTON_L, 1);
                 kp->flagl = 0;
             } else {
@@ -335,7 +399,13 @@ static void scan_keys(struct kp *kp) {
     if (keyr == keyr_old) {
         if (key_param[0]) {
             if (keyr) {
-                key_report(kp, key_param[14], key_param[15], 7);
+
+                if (key_param[90] == 1  ) {
+                    if(kp->flagr==1)
+                    do_swipe(kp, key_param[14], key_param[15], key_param[88],
+                            key_param[89], 7);
+                } else
+                    key_report(kp, key_param[14], key_param[15], 7);
                 kp->flagr = 0;
             } else {
                 kp->flagr = 1;
@@ -358,7 +428,12 @@ static void scan_keys(struct kp *kp) {
     if (keyl2 == keyl2_old) {
         if (key_param[0]) {
             if (keyl2) {
-                key_report(kp, key_param[16], key_param[17], 8);
+                if (key_param[93] == 1 ) {
+                    if(kp->flagl2 == 1)
+                    do_swipe(kp, key_param[16], key_param[17], key_param[91],
+                            key_param[92], 8);
+                } else
+                    key_report(kp, key_param[16], key_param[17], 8);
                 kp->flagl2 = 0;
             } else {
                 kp->flagl2 = 1;
@@ -380,7 +455,12 @@ static void scan_keys(struct kp *kp) {
     if (keyr2 == keyr2_old) {
         if (key_param[0]) {
             if (keyr2) {
-                key_report(kp, key_param[18], key_param[19], 9);
+                if (key_param[96] == 1 ) {
+                    if(kp->flagr2 == 1)
+                    do_swipe(kp, key_param[18], key_param[19], key_param[94],
+                            key_param[95], 9);
+                } else
+                    key_report(kp, key_param[18], key_param[19], 9);
                 kp->flagr2 = 0;
             } else {
                 kp->flagr2 = 1;
@@ -402,7 +482,12 @@ static void scan_keys(struct kp *kp) {
     if (keya == keya_old) {
         if (key_param[0]) {
             if (keya) {
-                key_report(kp, key_param[4], key_param[5], 2);
+                if (key_param[75] == 1 ) {
+                    if(kp->flaga == 1)
+                    do_swipe(kp, key_param[4], key_param[5], key_param[73],
+                            key_param[74], 2);
+                } else
+                    key_report(kp, key_param[4], key_param[5], 2);
                 kp->flaga = 0;
             } else {
                 kp->flaga = 1;
@@ -425,7 +510,13 @@ static void scan_keys(struct kp *kp) {
     if (keyb == keyb_old) {
         if (key_param[0]) {
             if (keyb) {
-                key_report(kp, key_param[6], key_param[7], 3);
+                if (key_param[78] == 1 ) {
+                    if(kp->flagb == 1)
+                    do_swipe(kp, key_param[6], key_param[7], key_param[76],
+                            key_param[77], 3);
+
+                } else
+                    key_report(kp, key_param[6], key_param[7], 3);
                 kp->flagb = 0;
             } else {
                 kp->flagb = 1;
@@ -448,7 +539,12 @@ static void scan_keys(struct kp *kp) {
     if (keyx == keyx_old) {
         if (key_param[0]) {
             if (keyx) {
-                key_report(kp, key_param[8], key_param[9], 4);
+                if (key_param[81] == 1 ) {
+                    if(kp->flagx == 1)
+                    do_swipe(kp, key_param[8], key_param[9], key_param[79],
+                            key_param[80], 4);
+                } else
+                    key_report(kp, key_param[8], key_param[9], 4);
                 kp->flagx = 0;
             } else {
                 kp->flagx = 1;
@@ -471,7 +567,12 @@ static void scan_keys(struct kp *kp) {
     if (keyy == keyy_old) {
         if (key_param[0]) {
             if (keyy) {
-                key_report(kp, key_param[10], key_param[11], 5);
+                if (key_param[84] == 1 ) {
+                    if(kp->flagy == 1)
+                    do_swipe(kp, key_param[10], key_param[11], key_param[82],
+                            key_param[83], 5);
+                } else
+                    key_report(kp, key_param[10], key_param[11], 5);
                 kp->flagy = 0;
             } else {
                 kp->flagy = 1;
@@ -504,7 +605,7 @@ static void scan_keys(struct kp *kp) {
 static ssize_t key_read(struct device *dev, struct device_attribute *attr,
         char *buf) {
     char i;
-    for (i = 0; i < 49; i++) {
+    for (i = 0; i < 109; i++) {
         printk("key_param[%d] = %d \n", i, key_param[i]);
     }
     return 0;
@@ -513,22 +614,47 @@ static ssize_t key_read(struct device *dev, struct device_attribute *attr,
 static ssize_t key_write(struct device *dev, struct device_attribute *attr,
         const char *buf, size_t count) {
     sscanf(buf,
-            "%ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld "
-                    "%ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld "
-                    "%ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld "
-                    "%ld %ld %ld %ld %ld", &key_param[0], &key_param[1],
-            &key_param[2], &key_param[3], &key_param[4], &key_param[5],
-            &key_param[6], &key_param[7], &key_param[8], &key_param[9],
-            &key_param[10], &key_param[11], &key_param[12], &key_param[13],
-            &key_param[14], &key_param[15], &key_param[16], &key_param[17],
-            &key_param[18], &key_param[19], &key_param[20], &key_param[21],
-            &key_param[22], &key_param[23], &key_param[24], &key_param[25],
-            &key_param[26], &key_param[27], &key_param[28], &key_param[29],
-            &key_param[30], &key_param[31], &key_param[32], &key_param[33],
-            &key_param[34], &key_param[35], &key_param[36], &key_param[37],
-            &key_param[38], &key_param[39], &key_param[40], &key_param[41],
-            &key_param[42], &key_param[43], &key_param[44], &key_param[45],
-            &key_param[46], &key_param[47], &key_param[48]);
+            "%ld %ld %ld %ld %ld %ld %ld %ld %ld %ld"
+            "%ld %ld %ld %ld %ld %ld %ld %ld %ld %ld"
+            "%ld %ld %ld %ld %ld %ld %ld %ld %ld %ld"
+            "%ld %ld %ld %ld %ld %ld %ld %ld %ld %ld"
+            "%ld %ld %ld %ld %ld %ld %ld %ld %ld %ld"
+            "%ld %ld %ld %ld %ld %ld %ld %ld %ld %ld"
+            "%ld %ld %ld %ld %ld %ld %ld %ld %ld %ld"
+            "%ld %ld %ld %ld %ld %ld %ld %ld %ld %ld"
+            "%ld %ld %ld %ld %ld %ld %ld %ld %ld %ld"
+            "%ld %ld %ld %ld %ld %ld %ld %ld %ld %ld"
+            "%ld %ld %ld %ld %ld %ld %ld %ld %ld "
+                        ,
+
+            &key_param[0], &key_param[1], &key_param[2], &key_param[3],
+            &key_param[4], &key_param[5], &key_param[6], &key_param[7],
+            &key_param[8], &key_param[9], &key_param[10], &key_param[11],
+            &key_param[12], &key_param[13], &key_param[14], &key_param[15],
+            &key_param[16], &key_param[17], &key_param[18], &key_param[19],
+            &key_param[20], &key_param[21], &key_param[22], &key_param[23],
+            &key_param[24], &key_param[25], &key_param[26], &key_param[27],
+            &key_param[28], &key_param[29], &key_param[30], &key_param[31],
+            &key_param[32], &key_param[33], &key_param[34], &key_param[35],
+            &key_param[36], &key_param[37], &key_param[38], &key_param[39],
+            &key_param[40], &key_param[41], &key_param[42], &key_param[43],
+            &key_param[44], &key_param[45], &key_param[46], &key_param[47],
+            &key_param[48], &key_param[49], &key_param[50], &key_param[51],
+            &key_param[52], &key_param[53], &key_param[54], &key_param[55],
+            &key_param[56], &key_param[57], &key_param[58], &key_param[59],
+            &key_param[60], &key_param[61], &key_param[62], &key_param[63],
+            &key_param[64], &key_param[65], &key_param[66], &key_param[67],
+            &key_param[68], &key_param[69], &key_param[70], &key_param[71],
+            &key_param[72], &key_param[73], &key_param[74], &key_param[75],
+            &key_param[76], &key_param[77], &key_param[78], &key_param[79],
+            &key_param[80], &key_param[81], &key_param[82], &key_param[83],
+            &key_param[84], &key_param[85], &key_param[86], &key_param[87],
+            &key_param[88], &key_param[89], &key_param[90], &key_param[91],
+            &key_param[92], &key_param[93], &key_param[94], &key_param[95],
+            &key_param[96], &key_param[97], &key_param[98], &key_param[99],
+            &key_param[100], &key_param[101], &key_param[102], &key_param[103],
+            &key_param[104], &key_param[105], &key_param[106], &key_param[107],
+            &key_param[108]);
     if (key_param[0] == 1 || (key_param[0] == 3 && key_param[32] == 1)) {
         printk("------- mode 1 -------\n");
         if (key_param[20] == 0)
@@ -553,6 +679,10 @@ static ssize_t key_write(struct device *dev, struct device_attribute *attr,
     if (key_param[0] == 2) {
         printk("------- mode 2 -------\n");
     }
+    if(key_param[0]==3){
+        printk("------- mode 3 -------\n");
+    }
+    int i;
 
     return count;
 }
@@ -727,6 +857,7 @@ static void kp_work(struct kp *kp) {
             kp->old_y = key_param[22];
         }
     }
+
     if (key_param[0] == 2 || (key_param[0] == 3 && key_param[32] == 2)) {
         //circle 1 (right joystick)
         if ((kp->key_valid[0] == 1) || (kp->key_valid[1] == 1)) {
@@ -759,29 +890,71 @@ static void kp_work(struct kp *kp) {
     }
 
     if (key_param[0] == 3 && key_param[32] == 3) {
-        //circle 1 (right joystick)
+        //circle 1 (right joystick SPLIT)
         if ((kp->key_valid[0] == 1) || (kp->key_valid[1] == 1)) {
-            kp->circle_flag[1] = 1;
+
             if (kp->key_valid[0] == 1) {
                 value = kp->key_value[0];
                 if (value >= 0 && value <= 1023 / 2 - ADC_VALUE * 2) {
-                    key_report(kp, key_param[41], key_param[42], 13);
+                    if (key_param[63] == 1) {
+                        if(kp->circle_flag[1]==0)
+                        do_swipe(kp, key_param[41], key_param[42],
+                                key_param[61], key_param[62], 13);
+                    } else
+                        key_report(kp, key_param[41], key_param[42], 13);
                 } else if (value >= 1023 / 2 + ADC_VALUE * 2) {
-                    key_report(kp, key_param[45], key_param[46], 13);
+                    if (key_param[69] == 1 ) {
+                        if(kp->circle_flag[1]==0)
+                        do_swipe(kp, key_param[45], key_param[46],
+                                key_param[67], key_param[68], 13);
+                    } else
+                        key_report(kp, key_param[45], key_param[46], 13);
                 }
             }
             if (kp->key_valid[1] == 1) {
                 value = kp->key_value[1];
                 if (value >= 0 && value <= 1023 / 2 - ADC_VALUE * 2) {
-                    key_report(kp, key_param[47], key_param[48], 12);
+                    if (key_param[72] == 1) {
+                        if(kp->circle_flag[1]==0)
+                        do_swipe(kp, key_param[47], key_param[48],
+                                key_param[70], key_param[71], 12);
+                    } else
+                        key_report(kp, key_param[47], key_param[48], 12);
                 } else if (value >= 1023 / 2 + ADC_VALUE * 2) {
-                    key_report(kp, key_param[43], key_param[44], 12);
+                    if (key_param[66] == 1 ) {
+                        if(kp->circle_flag[1]==0)
+                        do_swipe(kp, key_param[43], key_param[44],
+                                key_param[64], key_param[65], 12);
+                    } else
+                        key_report(kp, key_param[43], key_param[44], 12);
                 }
             }
+            kp->circle_flag[1] = 1;
         } else if (kp->circle_flag[1] == 1) {
             kp->circle_flag[1] = 0;
         }
     }
+    /*
+     if (key_param[0] == 3 && key_param[32] == 4) {
+     //circle 1 (right joystick "joystick" mode)
+     if ((kp->key_valid[0] == 1) || (kp->key_valid[1] == 1)) {
+     kp->circle_flag[1] = 1;
+     if (!second1) {
+     key_report(kp, (LCD_SCREEN_X + XCENTER) / 2, LCD_SCREEN_Y / 2,
+     1);
+     second1 = 1;
+     } else {
+     joystick_move(kp);
+     key_report(kp, kp->key_value[1], kp->key_value[0], 1);
+     }
+     } else if (kp->circle_flag[1] == 1) {
+     kp->circle_flag[1] = 0;
+     second1 = 0;
+     kp->old_x = CENTER_X;
+     kp->old_y = CENTER_Y;
+     }
+     }
+     */
 
     if (key_param[0] == 1 || key_param[0] == 2
             || (key_param[0] == 3 && key_param[31] == 2)) {
@@ -814,72 +987,112 @@ static void kp_work(struct kp *kp) {
         }
     }
 
-        if (key_param[0] == 3 && key_param[31] == 3) {
+    if (key_param[0] == 3 && key_param[31] == 3) {
 
-            //circle 0 (left joystick)
-            if ((kp->key_valid[2] == 1) || (kp->key_valid[3] == 1)) {
+        //circle 0 (left joystick SPLIT)
+        if ((kp->key_valid[2] == 1) || (kp->key_valid[3] == 1)) {
 
-                kp->circle_flag[0] = 1;
-                if (kp->key_valid[2] == 1) {
-                    value = kp->key_value[2];
 
-                    if (value >= 0 && value <= 1023 / 2 - ADC_VALUE * 2) {
+            if (kp->key_valid[2] == 1) {
+                value = kp->key_value[2];
+
+                if (value >= 0 && value <= 1023 / 2 - ADC_VALUE * 2) {
+                    if (key_param[60] == 1) {
+                        if(kp->circle_flag[0]==0)
+                        do_swipe(kp, key_param[39], key_param[40],
+                                key_param[58], key_param[59], 14);
+                    } else
                         key_report(kp, key_param[39], key_param[40], 14);
-                    } else if (value >= 1023 / 2 + ADC_VALUE * 2) {
+                } else if (value >= 1023 / 2 + ADC_VALUE * 2) {
+                    if (key_param[54] == 1  ) {
+                        if(kp->circle_flag[0]==0)
+                        do_swipe(kp, key_param[35], key_param[36],
+                                key_param[52], key_param[53], 14);
+                    } else
                         key_report(kp, key_param[35], key_param[36], 14);
-                    }
                 }
-                if (kp->key_valid[3] == 1) {
-                    value = kp->key_value[3];
+            }
+            if (kp->key_valid[3] == 1) {
+                value = kp->key_value[3];
 
-                    if (value >= 0 && value <= 1023 / 2 - ADC_VALUE * 2) {
+                if (value >= 0 && value <= 1023 / 2 - ADC_VALUE * 2) {
+                    if (key_param[57] == 1  ) {
+                        if(kp->circle_flag[0]==0)
+                        do_swipe(kp, key_param[37], key_param[38],
+                                key_param[55], key_param[56], 15);
+                    } else
                         key_report(kp, key_param[37], key_param[38], 15);
-                    } else if (value >= 1023 / 2 + ADC_VALUE * 2) {
+                } else if (value >= 1023 / 2 + ADC_VALUE * 2) {
+                    if (key_param[51] == 1  ) {
+                        if(kp->circle_flag[0]==0)
+                        do_swipe(kp, key_param[33], key_param[34],
+                                key_param[49], key_param[50], 15);
+                    } else
                         key_report(kp, key_param[33], key_param[34], 15);
-                    }
                 }
-            } else if (kp->circle_flag[0] == 1) {
-                kp->circle_flag[0] = 0;
             }
+            kp->circle_flag[0] = 1;
+        } else if (kp->circle_flag[0] == 1) {
+            kp->circle_flag[0] = 0;
         }
+    }
 
-        // Volume / start / select buttons
-        //At the moment they're mapped as A B buttons, because we need to extend
-        //Key params size. I planned an array sized 56-57 to get all the features.
-        if (key_param[0] == 3) {
-            if (kp->key_valid[4] == 1) {
-                value = kp->key_value[4];
-                kp->flagchan4 = 0;
-                if (value >= 0 && value <= (9 + 40)) {
+    // Volume / start / select buttons
+    //At the moment they're mapped as A B buttons, because we need to extend
+    //Key params size. I planned an array sized 56-57 to get all the features.
+    if (key_param[0] == 3) {
+        if (kp->key_valid[4] == 1) {
+            value = kp->key_value[4];
+
+            if (value >= 0 && value <= (9 + 40)) {
+                if (key_param[99] == 1 ) {
+                    if(kp->flagchan4==1)
+                    do_swipe(kp, key_param[25], key_param[26], key_param[97],
+                            key_param[98], 12);
+                } else
                     key_report(kp, key_param[25], key_param[26], 12);
-                } else if (value >= 392 - 40 && value <= (392 + 40)) {
+            } else if (value >= 392 - 40 && value <= (392 + 40)) {
+                if (key_param[102] == 1 ) {
+                    if(kp->flagchan4==1)
+                    do_swipe(kp, key_param[23], key_param[24], key_param[100],
+                            key_param[101], 12);
+                } else
                     key_report(kp, key_param[23], key_param[24], 12);
-                } else if (value >= 275 - 40 && value <= 275 + 40) {
+            } else if (value >= 275 - 40 && value <= 275 + 40) {
+                if (key_param[105] == 1  ) {
+                    if(kp->flagchan4==1)
+                    do_swipe(kp, key_param[27], key_param[28], key_param[103],
+                            key_param[104], 12);
+                } else
                     key_report(kp, key_param[27], key_param[28], 12);
-                } else if (value >= 150 - 40 && value <= 150 + 40) {
+            } else if (value >= 150 - 40 && value <= 150 + 40) {
+                if (key_param[108] == 1 ) {
+                    if(kp->flagchan4==1)
+                    do_swipe(kp, key_param[29], key_param[30], key_param[106],
+                            key_param[107], 12);
+                } else
                     key_report(kp, key_param[29], key_param[30], 12);
-                }
-                kp->flagchan4 = 0;
-            } else {
-                kp->flagchan4 = 1;
             }
+            kp->flagchan4 = 0;
+        } else if (kp->flagchan4 == 0){
+            kp->flagchan4 = 1;
         }
+    }
 
-        scan_keys(kp);
+    scan_keys(kp);
+    input_sync(kp->input);
+
+    if (release && (kp->circle_flag[0] == 0) && (kp->circle_flag[1] == 0)
+            && kp->flaga && kp->flagb && kp->flagx && kp->flagy && kp->flagl
+            && kp->flagr && kp->flagl2 && kp->flagr2 && kp->flagchan4) {
+        release = 0;
+        input_report_key(kp->input, BTN_TOUCH, 0);
+        input_report_abs(kp->input, ABS_MT_TOUCH_MAJOR, 0);
+        input_report_abs(kp->input, ABS_MT_WIDTH_MAJOR, 0);
+        input_mt_sync(kp->input);
         input_sync(kp->input);
-
-        if (release && (kp->circle_flag[0] == 0) && (kp->circle_flag[1] == 0)
-                && kp->flaga && kp->flagb && kp->flagx && kp->flagy && kp->flagl
-                && kp->flagr && kp->flagl2 && kp->flagr2 && kp->flagchan4) {
-            release = 0;
-            input_report_key(kp->input, BTN_TOUCH, 0);
-            input_report_abs(kp->input, ABS_MT_TOUCH_MAJOR, 0);
-            input_report_abs(kp->input, ABS_MT_WIDTH_MAJOR, 0);
-            input_mt_sync(kp->input);
-            input_sync(kp->input);
-            //printk("-------------- release all point -----------------\n");
-        }
-
+        //printk("-------------- release all point -----------------\n");
+    }
 
     if (key_param[0] == 0) {
         //left,right,up,down
